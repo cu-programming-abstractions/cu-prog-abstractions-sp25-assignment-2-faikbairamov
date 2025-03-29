@@ -1,50 +1,120 @@
 #include "RosettaStone.h"
 #include "GUI/SimpleTest.h"
+#include "error.h"
+#include "priorityqueue.h"
+#include <cmath>
 using namespace std;
 
 Map<string, double> kGramsIn(const string& str, int kGramLength) {
-    /* TODO: Delete this comment and the other lines here, then implement
-     * this function.
-     */
-    (void) str;
-    (void) kGramLength;
-    return {};
+    Map<string, double> kGrams;
+    Vector<string> substrings;
+
+    if (kGramLength <= 0) {
+        error("kGramLength parameter in not positive");
+    }
+
+    if (str.length() < kGramLength) {
+        return {};
+    }
+
+    for (int start = 0; start <= str.length() - kGramLength; start++) {
+        substrings.add(str.substr(start, kGramLength));
+    }
+
+    for (string substring : substrings) {
+        if (kGrams.containsKey(substring)) {
+            kGrams[substring]++;
+        } else {
+            kGrams.put(substring, 1);
+        }
+    }
+    return kGrams;
+}
+
+// Helper function for normalize()
+bool isNonZero(const Map<string, double>& input) {
+    for (string key : input) {
+        if (input[key] != 0) {
+            return true;
+        }
+    }
+    return false;
 }
 
 Map<string, double> normalize(const Map<string, double>& input) {
-    /* TODO: Delete this comment and the other lines here, then implement
-     * this function.
-     */
-    (void) input;
-    return {};
+    if (input.isEmpty() || !isNonZero(input)) {
+        error("No nonzero values present in the Map");
+    }
+
+    double sum = 0;
+    for (string substring : input) {
+        sum += pow(input[substring], 2);
+    }
+
+    Map<string, double> normalizedInput;
+
+    for (string substring : input) {
+        normalizedInput[substring] = input[substring] / sqrt(sum);
+    }
+    return normalizedInput;
 }
 
 Map<string, double> topKGramsIn(const Map<string, double>& source, int numToKeep) {
-    /* TODO: Delete this comment and the other lines here, then implement
-     * this function.
-     */
-    (void) source;
-    (void) numToKeep;
-    return {};
+    if (numToKeep > source.size()) {
+        return source;
+    }
+
+    if (numToKeep < 0) {
+        error("Quantity can not be negative");
+    }
+
+    if (numToKeep == 0) {
+        return {};
+    }
+
+    PriorityQueue<string> pq;
+    for (string key : source) {
+        pq.enqueue(key, source[key]);
+    }
+
+    while (pq.size() != numToKeep) {
+        pq.dequeue();
+    }
+
+    Map<string, double> topKGramsIn;
+    while (pq.size() != 0) {
+        double priority = pq.peekPriority();
+        topKGramsIn.put(pq.dequeue(), priority);
+    }
+    return topKGramsIn;
 }
 
 double cosineSimilarityOf(const Map<string, double>& lhs, const Map<string, double>& rhs) {
-    /* TODO: Delete this comment and the other lines here, then implement
-     * this function.
-     */
-    (void) lhs;
-    (void) rhs;
-    return {};
+    Vector<string> join;
+    for (string key : lhs) {
+        if (rhs.containsKey(key)) {
+            join.add(key);
+        }
+    }
+
+    double similarity = 0;
+    for (string key : join) {
+        similarity += lhs[key] * rhs[key];
+    }
+    return similarity;
 }
 
 string guessLanguageOf(const Map<string, double>& textProfile,
                        const Set<Corpus>& corpora) {
-    /* TODO: Delete this comment and the other lines here, then implement
-     * this function.
-     */
-    (void) textProfile;
-    (void) corpora;
-    return "";
+    if (corpora.isEmpty()) {
+        error("No languages to choose from");
+    }
+
+    PriorityQueue<string> similarities;
+    for (Corpus lang : corpora) {
+        similarities.enqueue(lang.name, 1-cosineSimilarityOf(textProfile, lang.profile));
+    }
+    return similarities.dequeue();
 }
 
 
@@ -683,3 +753,5 @@ PROVIDED_TEST("guessLanguageOf reports errors if no corpora are provided.") {
     EXPECT_ERROR(guessLanguageOf({}, {}));
     EXPECT_ERROR(guessLanguageOf({{"C", -1}}, {}));
 }
+
+
